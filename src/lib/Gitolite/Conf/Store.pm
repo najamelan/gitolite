@@ -26,8 +26,8 @@ use Data::Dumper;
 $Data::Dumper::Indent   = 1;
 $Data::Dumper::Sortkeys = 1;
 
-use Gitolite::Common;
 use Gitolite::Rc;
+use Gitolite::Common;
 use Gitolite::Hooks::Update;
 use Gitolite::Hooks::PostUpdate;
 
@@ -69,9 +69,9 @@ sub set_repolist {
     while (@in) {
         $_ = shift @in;
         if ( check_subconf_repo_disallowed( $subconf, $_ ) ) {
-            if (exists $groups{$_}) {
+            if ( exists $groups{$_} ) {
                 # groupname disallowed; try individual members now
-                (my $g = $_) =~ s/^\@$subconf\./\@/;
+                ( my $g = $_ ) =~ s/^\@$subconf\./\@/;
                 _warn "expanding '$g'; this *may* slow down compilation";
                 unshift @in, keys %{ $groups{$_} };
                 next;
@@ -112,14 +112,19 @@ sub parse_users {
 }
 
 sub add_rule {
-    my ( $perm, $ref, $user ) = @_;
+    my ( $perm, $ref, $user, $fname, $lnum ) = @_;
+    _warn "doesn't make sense to supply a ref ('$ref') for 'R' rule"
+      if $perm eq 'R' and $ref ne 'refs/.*';
     _warn "possible undeclared group '$user'"
-        if $user =~ /^@/ and not $groups{$user} and not $rc{GROUPLIST_PGM}
-            and not special_group($user);
-    _die "bad ref '$ref'"   unless $ref  =~ $REPOPATT_PATT;
+      if $user =~ /^@/
+      and not $groups{$user}
+      and not $rc{GROUPLIST_PGM}
+      and not special_group($user);
+    _die "bad ref '$ref'"   unless $ref =~ $REPOPATT_PATT;
     _die "bad user '$user'" unless $user =~ $USERNAME_PATT;
 
     $nextseq++;
+    store_rule_info( $nextseq, $fname, $lnum ) if $rc{RULE_INFO};
     for my $repo (@repolist) {
         push @{ $repos{$repo}{$user} }, [ $nextseq, $perm, $ref ];
     }
@@ -175,7 +180,7 @@ sub new_repos {
     _chdir( $rc{GL_REPO_BASE} );
 
     # normal repos
-    my @repos = grep { $_ =~ $REPONAME_PATT and not /^@/ } sort keys %repos;
+    my @repos = grep { $_ =~ $REPONAME_PATT and not /^@/ } ( sort keys %repos, sort keys %configs );
     # add in members of repo groups
     map { push @repos, keys %{ $groups{$_} } } grep { /^@/ and $_ ne '@all' } keys %repos;
 
@@ -186,7 +191,7 @@ sub new_repos {
         # use gl-conf as a sentinel
         hook_1($repo) if -d "$repo.git" and not -f "$repo.git/gl-conf";
 
-        if (not -d "$repo.git") {
+        if ( not -d "$repo.git" ) {
             push @{ $rc{NEW_REPOS_CREATED} }, $repo;
             trigger( 'PRE_CREATE', $repo );
             new_repo($repo);
@@ -249,6 +254,8 @@ sub parse_done {
     for my $ig ( sort keys %ignored ) {
         _warn "subconf '$ig' attempting to set access for " . join( ", ", sort keys %{ $ignored{$ig} } );
     }
+
+    close_rule_info() if $rc{RULE_INFO};
 }
 
 # ----------------------------------------------------------------------
@@ -285,7 +292,7 @@ sub store_1 {
     open( my $compiled_fh, ">", "$repo.git/gl-conf" ) or return;
 
     my $dumped_data = '';
-    if ($repos{$repo}) {
+    if ( $repos{$repo} ) {
         $one_repo{$repo} = $repos{$repo};
         delete $repos{$repo};
         $dumped_data = Data::Dumper->Dump( [ \%one_repo ], [qw(*one_repo)] );
@@ -326,7 +333,7 @@ sub store_common {
 
         # save patterns in %groups for faster handling of multiple repos, such
         # as happens in the various POST_COMPILE scripts
-        for my $k (keys %groups) {
+        for my $k ( keys %groups ) {
             $patterns{groups}{$k} = 1 unless $k =~ $REPONAME_PATT;
         }
     }
@@ -382,6 +389,20 @@ sub inside_out {
     }
     return \%ret;
     # %groups = ( 'bb' => [ '@bb', '@aa' ], 'cc' => [ '@bb', '@aa' ], 'dd' => [ '@bb' ]);
+}
+
+{
+    my $ri_fh = '';
+
+    sub store_rule_info {
+        $ri_fh = _open( ">", $rc{GL_ADMIN_BASE} . "/conf/rule_info" ) unless $ri_fh;
+        # $nextseq, $fname, $lnum
+        print $ri_fh join( "\t", @_ ) . "\n";
+    }
+
+    sub close_rule_info {
+        close $ri_fh or die "close rule_info file failed: $!";
+    }
 }
 
 1;

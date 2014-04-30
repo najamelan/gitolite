@@ -62,7 +62,7 @@ $UNSAFE_PATT          = qr([`~#\$\&()|;<>]);
 my $current_data_version = "3.2";
 
 my $rc = glrc('filename');
-if (-r $rc and -s $rc) {
+if ( -r $rc and -s $rc ) {
     do $rc or die $@;
 }
 if ( defined($GL_ADMINDIR) ) {
@@ -132,7 +132,7 @@ sub non_core_expand {
     my %enable;
 
     for my $e ( @{ $rc{ENABLE} } ) {
-        my ($name, $arg) = split ' ', $e, 2;
+        my ( $name, $arg ) = split ' ', $e, 2;
         # store args as the hash value for the name
         $enable{$name} = $arg || '';
 
@@ -142,8 +142,8 @@ sub non_core_expand {
     }
 
     # bring in additional non-core specs from the rc file, if given
-    if (my $nc2 = $rc{NON_CORE}) {
-        for ($non_core, $nc2) {
+    if ( my $nc2 = $rc{NON_CORE} ) {
+        for ( $non_core, $nc2 ) {
             # beat 'em into shape :)
             s/#.*//g;
             s/[ \t]+/ /g; s/^ //mg; s/ $//mg;
@@ -152,8 +152,8 @@ sub non_core_expand {
 
         for ( split "\n", $nc2 ) {
             next unless /\S/;
-            my ($name, $where, $module, $before, $name2) = split ' ', $_;
-            if (not $before) {
+            my ( $name, $where, $module, $before, $name2 ) = split ' ', $_;
+            if ( not $before ) {
                 $non_core .= "$name $where $module\n";
                 next;
             }
@@ -165,7 +165,7 @@ sub non_core_expand {
     my @data = split "\n", $non_core || '';
     for (@data) {
         next if /^\s*(#|$)/;
-        my ($name, $where, $module) = split ' ', $_;
+        my ( $name, $where, $module ) = split ' ', $_;
 
         # if it appears here, it's not a command, so delete it.  At the end of
         # this loop, what's left in $rc{COMMANDS} will be those names in the
@@ -228,17 +228,17 @@ sub query_rc {
         exit 0;
     }
 
-    my $cv = \%rc;  # current "value"
+    my $cv = \%rc;    # current "value"
     while (@vars) {
         my $v = shift @vars;
 
         # dig into the rc hash, using each var as a component
-        if (not ref($cv)) {
+        if ( not ref($cv) ) {
             _warn "unused arguments...";
             last;
-        } elsif (ref($cv) eq 'HASH') {
+        } elsif ( ref($cv) eq 'HASH' ) {
             $cv = $cv->{$v} || '';
-        } elsif (ref($cv) eq 'ARRAY') {
+        } elsif ( ref($cv) eq 'ARRAY' ) {
             $cv = $cv->[$v] || '';
         } else {
             _die "dont know what to do with " . ref($cv) . " item in the rc file";
@@ -247,17 +247,17 @@ sub query_rc {
 
     # we've run out of arguments so $cv is what we have.  If we're supposed to
     # be quiet, we don't have to print anything so let's get that done first:
-    exit ( $cv ? 0 : 1 ) if $quiet;     # shell truth
+    exit( $cv ? 0 : 1 ) if $quiet;    # shell truth
 
     # print values (notice we ignore the '-n' option if it's a ref)
-    if (ref($cv) eq 'HASH') {
-        print join("\n", sort keys %$cv), "\n" if %$cv;
-    } elsif (ref($cv) eq 'ARRAY') {
-        print join("\n", @$cv), "\n" if @$cv;
+    if ( ref($cv) eq 'HASH' ) {
+        print join( "\n", sort keys %$cv ), "\n" if %$cv;
+    } elsif ( ref($cv) eq 'ARRAY' ) {
+        print join( "\n", @$cv ), "\n" if @$cv;
     } else {
         print $cv . ( $nonl ? '' : "\n" ) if $cv;
     }
-    exit ( $cv ? 0 : 1 );   # shell truth
+    exit( $cv ? 0 : 1 );              # shell truth
 }
 
 sub version {
@@ -277,7 +277,7 @@ sub trigger {
     # name, so setup env from options
     require Gitolite::Conf::Load;
     Gitolite::Conf::Load->import('env_options');
-    env_options($_[0]) if $_[0];
+    env_options( $_[0] ) if $_[0];
 
     if ( exists $rc{$rc_section} ) {
         if ( ref( $rc{$rc_section} ) ne 'ARRAY' ) {
@@ -289,33 +289,33 @@ sub trigger {
                 if ( my ( $module, $sub ) = ( $pgm =~ /^(.*)::(\w+)$/ ) ) {
 
                     require Gitolite::Triggers;
-                    trace( 1, 'trigger', $module, $sub, @args, $rc_section, @_ );
+                    trace( 2, 'trigger module', $module, $sub, @args, $rc_section, @_ );
                     Gitolite::Triggers::run( $module, $sub, @args, $rc_section, @_ );
 
                 } else {
-                    $pgm = _which("triggers/$pgm", 'x');
+                    $pgm = _which( "triggers/$pgm", 'x' );
 
                     _warn("skipped trigger '$s' (not found or not executable)"), next if not $pgm;
-                    trace( 2, "command: $s" );
+                    trace( 2, 'trigger command', $s );
                     _system( $pgm, @args, $rc_section, @_ );    # they better all return with 0 exit codes!
                 }
             }
         }
         return;
     }
-    trace( 2, "'$rc_section' not found in rc" );
+    trace( 3, "'$rc_section' not found in rc" );
 }
 
 sub _which {
     # looks for a file in LOCAL_CODE or GL_BINDIR.  Returns whichever exists
     # (LOCAL_CODE preferred if defined) or 0 if not found.
     my $file = shift;
-    my $mode = shift;   # could be 'x' or 'r'
+    my $mode = shift;    # could be 'x' or 'r'
 
     my @files = ("$rc{GL_BINDIR}/$file");
     unshift @files, ("$rc{LOCAL_CODE}/$file") if $rc{LOCAL_CODE};
 
-    for my $f ( @files ) {
+    for my $f (@files) {
         return $f if -x $f;
         return $f if -r $f and $mode eq 'r';
     }
@@ -375,7 +375,8 @@ sub args {
 
 # ----------------------------------------------------------------------
 
-BEGIN { $non_core = "
+BEGIN {
+    $non_core = "
     # No user-servicable parts inside.  Warranty void if seal broken.  Refer
     # servicing to authorised service center only.
 
@@ -398,6 +399,9 @@ BEGIN { $non_core = "
     Mirroring               POST_GIT        ::
 
     refex-expr              ACCESS_2        RefexExpr::access_2
+
+    expand-deny-messages    ACCESS_1        .
+    expand-deny-messages    ACCESS_2        .
 
     RepoUmask               PRE_GIT         ::
     RepoUmask               POST_CREATE     ::
@@ -481,6 +485,8 @@ __DATA__
 
     # the 'desc' command uses this
         # WRITER_CAN_UPDATE_DESC    =>  1,
+    # the 'readme' command uses this
+        # WRITER_CAN_UPDATE_README  =>  1,
 
     # the CpuTime feature uses these
         # display user, system, and elapsed times to user after each git operation
@@ -525,6 +531,7 @@ __DATA__
             # 'create',
             # 'fork',
             # 'mirror',
+            # 'readme',
             # 'sskm',
             # 'D',
 
@@ -560,6 +567,9 @@ __DATA__
 
             # set default roles from lines like 'option default.roles-1 = ...', etc.
             # 'set-default-roles',
+
+            # show more detailed messages on deny
+            # 'expand-deny-messages',
 
         # system admin stuff
 

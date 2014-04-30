@@ -48,15 +48,13 @@ sub trace {
     return unless defined( $ENV{D} );
 
     my $level = shift; return if $ENV{D} < $level;
-    my $args = ''; $args = join( ", ", @_ ) if @_;
     my $sub = ( caller 1 )[3] || ''; $sub =~ s/.*://;
     if ( not $sub ) {
         $sub = (caller)[1];
         $sub =~ s(.*/(.*))(($1));
     }
-    $sub .= ' ' x ( 32 - length($sub) );
-    say2 "TRACE $level $sub", ( @_ ? shift : () );
-    say2( "TRACE $level " . ( " " x 32 ), $_ ) for @_;
+    $sub .= ' ' x ( 31 - length($sub) );
+    say2 "$level\t$sub\t", join( "\t", @_ );
 }
 
 sub dbg {
@@ -204,6 +202,7 @@ sub sort_u {
 
 sub cleanup_conf_line {
     my $line = shift;
+    return $line if $line =~ /^# \S+ \d+$/;
 
     # kill comments, but take care of "#" inside *simple* strings
     $line =~ s/^((".*?"|[^#"])*)#.*/$1/;
@@ -228,7 +227,7 @@ sub cleanup_conf_line {
             $repo =~ s(\./(.*)\.git$)($1);
             push @phy_repos, $repo;
         }
-        trace( 2, scalar(@phy_repos) . " physical repos found" );
+        trace( 3, scalar(@phy_repos) . " physical repos found" );
         return sort_u( \@phy_repos );
     }
 }
@@ -284,7 +283,7 @@ sub gl_log {
 
 sub logger_plus_stderr {
     open my $fh, "|-", "logger" or confess "it's really not my day is it...?\n";
-    for ( @_ ) {
+    for (@_) {
         print STDERR "FATAL: $_\n";
         print $fh "FATAL: $_\n";
     }

@@ -123,7 +123,6 @@ sub main {
     # more information.
     unless ( $ENV{GL_BYPASS_ACCESS_CHECKS} ) {
         my $ret = access( $repo, $user, $aa, 'any' );
-        trace( 1, "access($repo, $user, $aa, 'any')", "-> $ret" );
         trigger( 'ACCESS_1', $repo, $user, $aa, 'any', $ret );
         _die $ret . "\n(or you mis-spelled the reponame)" if $ret =~ /DENIED/;
 
@@ -131,7 +130,7 @@ sub main {
     }
 
     trigger( 'PRE_GIT', $repo, $user, $aa, 'any', $verb );
-    if ($ENV{REQUEST_URI}) {
+    if ( $ENV{REQUEST_URI} ) {
         _system( "git", "http-backend" );
     } else {
         my $repodir = "'$rc{GL_REPO_BASE}/$repo.git'";
@@ -158,10 +157,11 @@ sub parse_soc {
     # after this we should not return; caller expects us to handle it all here
     # and exit out
 
-    _die "suspicious characters loitering about '$soc'" if $soc !~ $REMOTE_COMMAND_PATT;
 
     my @words = split ' ', $soc;
     if ( $rc{COMMANDS}{ $words[0] } ) {
+        _die "suspicious characters loitering about '$soc'"
+          if $rc{COMMANDS}{ $words[0] } ne 'ua' and $soc !~ $REMOTE_COMMAND_PATT;
         trace( 2, "gitolite command", $soc );
         _system( "gitolite", @words );
         exit 0;
