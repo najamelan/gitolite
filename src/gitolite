@@ -89,7 +89,7 @@ if ( $command eq 'setup' ) {
     print "$_\n" for ( @{ $fn->(@args) } );
 
 } else {
-    _die "unknown gitolite sub-command";
+    _die "unknown gitolite sub-command: $command";
 }
 
 gl_log('END') if $$ == $ENV{GL_TID};
